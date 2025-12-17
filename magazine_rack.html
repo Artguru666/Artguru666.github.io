@@ -198,6 +198,91 @@
             document.getElementById('prevButton').addEventListener('click', previousPage);
             document.getElementById('nextButton').addEventListener('click', nextPage);
 
+            // Touch support for magazine selection (tablets, smartphones, iPad)
+            window.addEventListener('touchstart', function(event) {
+                if (event.touches.length === 1) {
+                    // Simulate a click for magazine selection
+                    const touch = event.touches[0];
+                    mouse.x = (touch.clientX / window.innerWidth) * 2 - 1;
+                    mouse.y = -(touch.clientY / window.innerHeight) * 2 + 1;
+                    raycaster.setFromCamera(mouse, camera);
+                    if (isReadingMode && selectedMagazine) {
+                        const intersects = raycaster.intersectObject(selectedMagazine, true);
+                        if (intersects.length > 0) {
+                            // Same logic as onMouseClick for art magazines
+                            if (selectedMagazine.userData.index === 2 || selectedMagazine.userData.index === 0 || selectedMagazine.userData.index === 4) {
+                                let artIdx = selectedMagazine.userData.artIdx || 0;
+                                let artImages;
+                                if (selectedMagazine.userData.index === 2) {
+                                    artImages = [
+                                        'art/1.jpg', 'art/2.jpg', 'art/3.jpg', 'art/4.jpg', 'art/5.jpg',
+                                        'art/6.jpg', 'art/7.jpg', 'art/8.jpg', 'art/9.jpg', 'art/10.jpg',
+                                        'art/11.jpg', 'art/12.JPG'
+                                    ];
+                                } else if (selectedMagazine.userData.index === 0) {
+                                    artImages = [
+                                        'art/Sculpture/venussurfer.png',
+                                        'art/Sculpture/surfclay.png',
+                                        'art/Sculpture/sqaut.jpeg',
+                                        'art/Sculpture/sculptiing.png',
+                                        'art/Sculpture/idol.png',
+                                        'art/Sculpture/galleon.jpeg',
+                                        'art/Sculpture/cilpld.png',
+                                        'art/Sculpture/black frames.jpeg',
+                                        'art/Sculpture/6388094_orig.jpg',
+                                        'art/Sculpture/10152544_303354499813876_562514143_n.jpg'
+                                    ];
+                                } else {
+                                    artImages = [
+                                        'art/Abstract/NMZQ7606.JPG',
+                                        'art/Abstract/IMG_E5341.JPG',
+                                        'art/Abstract/IMG_6011.jpeg',
+                                        'art/Abstract/IMG_6007.jpeg',
+                                        'art/Abstract/IMG_5845.JPG',
+                                        'art/Abstract/IMG_5844.JPG',
+                                        'art/Abstract/IMG_5843.JPG',
+                                        'art/Abstract/IMG_5817.jpeg',
+                                        'art/Abstract/IMG_5514.JPG',
+                                        'art/Abstract/IMG_5502.JPG',
+                                        'art/Abstract/IMG_5452.JPG',
+                                        'art/Abstract/IMG_5451.JPG',
+                                        'art/Abstract/IMG_5403.JPG',
+                                        'art/Abstract/IMG_5398.JPG',
+                                        'art/Abstract/IMG_5379.JPG',
+                                        'art/Abstract/IMG_5378.JPG',
+                                        'art/Abstract/IMG_5377.JPG',
+                                        'art/Abstract/IMG_5376.JPG',
+                                        'art/Abstract/IMG_5374.JPG',
+                                        'art/Abstract/IMG_5373.JPG'
+                                    ];
+                                }
+                                artIdx = (artIdx + 1) % artImages.length;
+                                selectedMagazine.userData.artIdx = artIdx;
+                                selectedMagazine.userData.setArtSpread(artIdx);
+                                updatePageCounter();
+                                animatePageFlip();
+                            } else if (!selectedMagazine.userData.isLocked) {
+                                if (selectedMagazine.userData.isClosed) {
+                                    openMagazineWithButton();
+                                }
+                            }
+                        }
+                        return;
+                    }
+                    if (isReadingMode) return;
+                    const intersects = raycaster.intersectObjects(magazines, true);
+                    if (intersects.length > 0) {
+                        let clickedMagazine = intersects[0].object;
+                        while (clickedMagazine.parent && !clickedMagazine.userData.isClickable) {
+                            clickedMagazine = clickedMagazine.parent;
+                        }
+                        if (clickedMagazine.userData.isClickable && !clickedMagazine.userData.isLocked) {
+                            enterReadingMode(clickedMagazine);
+                        }
+                    }
+                }
+            }, { passive: false });
+
             animate();
         }
 
