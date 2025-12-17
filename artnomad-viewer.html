@@ -51,25 +51,21 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 });
 </script>
-// No highlight on ARTWorks mesh when hovering Artworks menu link; original behavior restored
-// ...existing code...
-
-// Click on ARTWorks mesh no longer does anything; hover effect remains only
+ 
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
   <title>GLB Viewer (artnomad.glb)</title>
   <style>
-  /* removed stray JS comment */
-  /* removed misplaced JS variable */
+  
   body { margin:0; background:#222222; }
       #msg { color:#fff; position:absolute; top:10px; left:10px; z-index:2; }
     </style>
 </head>
 <body>
 
-<div id="msg">Loading artnomad.glb...</div>
+
 
 <nav id="main-menu" style="position:fixed;bottom:74px;left:50%;transform:translateX(-50%);z-index:1003;display:flex;gap:32px;background:rgba(255,255,255,0.92);border-radius:16px 16px 24px 24px;padding:10px 32px 8px 32px;box-shadow:0 4px 24px #0002;backdrop-filter:blur(2px);font-family:sans-serif;">
   <a href="magazine_rack.html" class="menu-link">Artworks</a>
@@ -296,7 +292,7 @@ renderer.domElement.addEventListener('mousemove', e => {
   }
   console.log('Loaded mesh names:', meshNames);
   scene.add(model);
-  setMsg('Loaded artnomad.glb');
+  setMsg('');
 }, undefined, err => {
   setMsg('Failed to load: ' + (err.message||err));
 });
