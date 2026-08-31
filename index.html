@@ -14,6 +14,21 @@
     border-radius:50%; background:rgba(255,255,255,0.85); box-shadow:0 0 0 1px rgba(0,0,0,0.35);
     pointer-events:none; z-index:5; display:none;
   }
+  #joystick{
+    position:fixed; left:26px; bottom:26px; width:120px; height:120px; border-radius:50%;
+    background:rgba(255,255,255,0.35); border:1px solid rgba(17,17,17,0.25);
+    display:none; z-index:6; touch-action:none;
+  }
+  #joystickNub{
+    position:absolute; left:50%; top:50%; width:52px; height:52px; margin:-26px 0 0 -26px;
+    border-radius:50%; background:rgba(17,17,17,0.55); pointer-events:none;
+  }
+  #leaveBtn{
+    position:fixed; top:16px; right:16px; z-index:6; display:none;
+    background:rgba(255,255,255,0.75); color:#111; border:none; border-radius:20px;
+    font-size:12px; letter-spacing:1px; text-transform:uppercase; font-weight:600;
+    padding:9px 16px; font-family:inherit; cursor:pointer;
+  }
   #interactHint{
     position:fixed; top:calc(50% + 20px); left:50%; transform:translateX(-50%);
     color:#111; font-size:11px; letter-spacing:1px; background:rgba(255,255,255,0.75);
@@ -102,6 +117,8 @@
 <body>
   <div id="app"></div>
   <div id="crosshair"></div>
+  <div id="joystick"><div id="joystickNub"></div></div>
+  <button id="leaveBtn" type="button">Leave</button>
   <div id="interactHint">Click to turn the page</div>
   <div id="jeffBubble"></div>
   <div id="hud">W A S D / arrows — move · mouse — look · esc — leave</div>
@@ -388,8 +405,12 @@
     this.container.filterArea = this.renderer.screen;
   };
   TitleApp.prototype.resize = function(){
-    this.w = mount.clientWidth || 620;
-    this.h = mount.clientHeight || 150;
+    // the overlay (and this mount) reads 0x0 while hidden behind the gallery — skip rather than
+    // falling back to a tiny hardcoded size, which would otherwise get stuck permanently and
+    // render the title small once the overlay comes back after leaving the gallery
+    if(!mount.clientWidth || !mount.clientHeight) return;
+    this.w = mount.clientWidth;
+    this.h = mount.clientHeight;
     const fontSize = Math.min(this.w*0.17, this.h*0.26);
     if(this.renderer) this.renderer.resize(this.w, this.h);
     if(this.visual){
@@ -1585,8 +1606,17 @@
   const TOUCH_SENSITIVITY = 0.0032;
   const EDGE_TURN_SPEED = 1.9; // rad/sec bonus turn while the cursor is pinned at the screen edge
   const EDGE_MARGIN = 16;      // px from the window edge that counts as "pinned"
-  let locked=false, active=false, dragging=false, lastX=null, lastY=null;
+  let locked=false, active=false;
+  let lookTouchId=null, lastX=null, lastY=null;
+  let joyTouchId=null, joyX=0, joyY=0;
   let mouseX = window.innerWidth/2, mouseY = window.innerHeight/2;
+  // touch as the PRIMARY input (no hover, coarse pointer) — excludes touchscreen laptops/PCs
+  // that also have a mouse, so the joystick/leave button only show on phones and tablets
+  const isTouchDevice = window.matchMedia('(hover: none) and (pointer: coarse)').matches;
+  const joystickEl = document.getElementById('joystick');
+  const joystickNub = document.getElementById('joystickNub');
+  const leaveBtnEl = document.getElementById('leaveBtn');
+  leaveBtnEl.addEventListener('click', ()=>{ if(active) leaveGallery(); });
 
   document.addEventListener('keydown', e=>{
     keys[e.code]=true;
@@ -1610,28 +1640,74 @@
     applyLook(e.movementX, e.movementY, SENSITIVITY);
     mouseX = e.clientX; mouseY = e.clientY;
   });
-  // touch: no persistent hover, so a finger-drag stands in for mouse movement
+
+  // ---------- touch: a left-thumb joystick drives movement, a drag anywhere else looks around —
+  // tracked by touch identifier so both fingers work at once (tablet/phone) ----------
+  const JOY_MAX = 45; // px the nub can travel from center before clamping
+  function updateJoystick(t){
+    const rect = joystickEl.getBoundingClientRect();
+    const cx = rect.left+rect.width/2, cy = rect.top+rect.height/2;
+    let dx = t.clientX-cx, dy = t.clientY-cy;
+    const dist = Math.hypot(dx,dy);
+    if(dist>JOY_MAX){ dx = dx/dist*JOY_MAX; dy = dy/dist*JOY_MAX; }
+    joystickNub.style.transform = `translate(${dx}px, ${dy}px)`;
+    joyX = dx/JOY_MAX; joyY = dy/JOY_MAX;
+  }
+  function resetJoystick(){
+    joyTouchId=null; joyX=0; joyY=0;
+    joystickNub.style.transform = 'translate(0px, 0px)';
+  }
+  joystickEl.addEventListener('touchstart', e=>{
+    e.preventDefault();
+    if(joyTouchId!==null) return;
+    const t = e.changedTouches[0];
+    joyTouchId = t.identifier;
+    updateJoystick(t);
+  }, {passive:false});
+  joystickEl.addEventListener('touchmove', e=>{
+    e.preventDefault();
+    for(const t of e.changedTouches){ if(t.identifier===joyTouchId) updateJoystick(t); }
+  }, {passive:false});
+  function joystickTouchEnd(e){
+    for(const t of e.changedTouches){ if(t.identifier===joyTouchId) resetJoystick(); }
+  }
+  joystickEl.addEventListener('touchend', joystickTouchEnd);
+  joystickEl.addEventListener('touchcancel', joystickTouchEnd);
+
+  // any touch starting on the canvas (i.e. not already claimed by the joystick, which sits
+  // on its own element on top) drives the look direction, same as a mouse drag
   renderer.domElement.addEventListener('touchstart', e=>{
-    if(!active) return;
-    dragging=true; lastX=e.touches[0].clientX; lastY=e.touches[0].clientY;
+    if(!active || lookTouchId!==null) return;
+    const t = e.changedTouches[0];
+    lookTouchId = t.identifier; lastX=t.clientX; lastY=t.clientY;
   }, {passive:true});
   renderer.domElement.addEventListener('touchmove', e=>{
-    if(!active || !dragging) return;
-    applyLook(e.touches[0].clientX-lastX, e.touches[0].clientY-lastY, TOUCH_SENSITIVITY);
-    lastX=e.touches[0].clientX; lastY=e.touches[0].clientY;
+    if(!active || lookTouchId===null) return;
+    for(const t of e.changedTouches){
+      if(t.identifier===lookTouchId){
+        applyLook(t.clientX-lastX, t.clientY-lastY, TOUCH_SENSITIVITY);
+        lastX=t.clientX; lastY=t.clientY;
+      }
+    }
   }, {passive:true});
-  window.addEventListener('touchend', ()=>{ dragging=false; lastX=null; lastY=null; });
+  function releaseLookTouch(e){
+    for(const t of e.changedTouches){ if(t.identifier===lookTouchId){ lookTouchId=null; lastX=null; lastY=null; } }
+  }
+  window.addEventListener('touchend', releaseLookTouch);
+  window.addEventListener('touchcancel', releaseLookTouch);
 
+  if(isTouchDevice) hud.textContent = 'Joystick — move · drag — look';
   function showOverlay(){
     overlay.style.display='flex';
     requestAnimationFrame(()=>{ overlay.style.opacity='1'; });
-    crosshair.style.display='none'; hud.style.display='none';
+    crosshair.style.display='none'; hud.style.display='none'; joystickEl.style.display='none'; leaveBtnEl.style.display='none';
     const jb = document.getElementById('jeffBubble'); if(jb) jb.classList.remove('show');
   }
   function hideOverlay(){
     overlay.style.opacity='0';
     setTimeout(()=>{ overlay.style.display='none'; },400);
     crosshair.style.display='block'; hud.style.display='block';
+    if(isTouchDevice){ joystickEl.style.display='block'; leaveBtnEl.style.display='block'; }
   }
   function enterGallery(){
     active=true; lastX=null; lastY=null;
@@ -1645,7 +1721,8 @@
     }
   }
   function leaveGallery(){
-    active=false; dragging=false;
+    active=false; lookTouchId=null; lastX=null; lastY=null;
+    resetJoystick();
     if(document.pointerLockElement) document.exitPointerLock();
     showOverlay();
   }
@@ -1715,7 +1792,7 @@
   });
 
   const clock = new THREE.Clock();
-  const MOVE_SPEED = 3.3;
+  const MOVE_SPEED = 4.95; // 1.5x the original walking speed
   let walkCycle = 0;
   let levelHeight = 0; // stateful current floor height (0 = ground, MEZZ_H = mezzanine)
 
@@ -1742,13 +1819,16 @@
       if(keys['KeyS']||keys['ArrowDown']) fwd+=1;
       if(keys['KeyD']||keys['ArrowRight']) strafe+=1;
       if(keys['KeyA']||keys['ArrowLeft']) strafe-=1;
+      fwd += joyY; strafe += joyX;
     }
     let moving=false;
     if(fwd!==0 || strafe!==0){
       moving=true;
-      const len=Math.hypot(fwd,strafe)||1; fwd/=len; strafe/=len;
-      const dx=(Math.sin(yaw)*fwd + Math.cos(yaw)*strafe)*MOVE_SPEED*delta;
-      const dz=(Math.cos(yaw)*fwd - Math.sin(yaw)*strafe)*MOVE_SPEED*delta;
+      const len=Math.hypot(fwd,strafe);
+      const speedScale=Math.min(1,len); // analog: a light joystick nudge moves slower than a full push
+      const nfwd=fwd/len, nstrafe=strafe/len;
+      const dx=(Math.sin(yaw)*nfwd + Math.cos(yaw)*nstrafe)*MOVE_SPEED*speedScale*delta;
+      const dz=(Math.cos(yaw)*nfwd - Math.sin(yaw)*nstrafe)*MOVE_SPEED*speedScale*delta;
       playerRig.position.x += dx;
       playerRig.position.z += dz;
       const walls = levelHeight>0.3 ? wallBoxes.concat(stairRailBoxes, mezzRailBoxes) : wallBoxes.concat(stairRailBoxes);
