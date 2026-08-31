@@ -4,6 +4,16 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Art Nomad Gallery — walkable 3D hall</title>
+<meta name="description" content="A walkable 3D art gallery — wander the halls and see paintings, drawings, and sketches from Håvard Hølland's traveling studio practice.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://www.artnomad.world/">
+<meta property="og:title" content="Art Nomad Gallery x HÅVARD HØLLAND">
+<meta property="og:description" content="A walkable 3D art gallery — wander the halls and see paintings, drawings, and sketches from Håvard Hølland's traveling studio practice.">
+<meta property="og:image" content="https://www.artnomad.world/og-image.jpg">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="Art Nomad Gallery x HÅVARD HØLLAND">
+<meta name="twitter:description" content="A walkable 3D art gallery — wander the halls and see paintings, drawings, and sketches from Håvard Hølland's traveling studio practice.">
+<meta name="twitter:image" content="https://www.artnomad.world/og-image.jpg">
 <style>
   html,body{ margin:0; padding:0; overflow:hidden; height:100%; background:#111; font-family: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Helvetica, Arial, sans-serif; }
   #app{ position:fixed; inset:0; }
@@ -201,11 +211,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/pixi.js/6.2.1/browser/pixi.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/webfont/1.6.28/webfontloader.js"></script>
 <script>
-// ---------- particle-dot title text: "WHITE / GALLERY" rendered as thousands of small dots
+// ---------- particle-dot title text: "ART NOMAD GALLERY" rendered as thousands of small dots
 // sampled from the rasterized glyphs, held together by a blur+threshold filter so they read
-// as solid type, and scattered by a physics repel wherever the mouse gets close. Ported from
-// a TypeScript CodePen source (https://codepen.io/kotAndy/pen/mdzqQKW) into plain JS, and
-// re-targeted from full-page coordinates to the #particleTitle container's local space.
+// as solid type, and scattered by a physics repel wherever the mouse gets close.
 (function(){
   const mount = document.getElementById('particleTitle');
   const fallbackH1 = document.querySelector('#overlay h1.srOnly');
@@ -286,7 +294,6 @@
   };
 
   function makeDotTexture(){
-    // self-contained replacement for the (now-404) codepen-hosted particle sprite —
     // a soft radial-gradient dot drawn to a canvas, so the title has no external asset dependency
     const c = document.createElement('canvas');
     c.width = 16; c.height = 16;
@@ -1475,7 +1482,7 @@
   mezzFrame3.rotation.y = -Math.PI/2;
   scene.add(mezzFrame3);
 
-  // feature exhibition wall (like SHUTDOWN.gallery's intro wall): artist photo left, title/text right,
+  // feature exhibition wall: artist photo left, title/text right,
   // printed flush on the wall (no frame border), kept clear of the clerestory window above (window starts y=5.0)
   const BIG_H = 3.6, BIG_Y = 2.4;
   const BIG_W = BIG_H * (2240/768); // matches the canvas aspect ratio below
@@ -1520,7 +1527,13 @@
 
       g.fillStyle='#666'; g.font='italic 27px sans-serif';
       const statement = "The gallery draws random artworks I have created onto the walls, so every time you enter the site new artworks I have created is displayed. Enjoy this little digital experiment, art is life. All the best xxx H";
-      wrapText(statement, TEXT_X, y, TEXT_MAX_W, 40);
+      const afterStatementY = wrapText(statement, TEXT_X, y, TEXT_MAX_W, 40);
+      drawSignature(afterStatementY);
+    }
+    function drawSignature(y){
+      if(!(signImg && signImg.complete && signImg.naturalWidth)) return;
+      const sigW = 380, sigH = sigW * (signImg.naturalHeight/signImg.naturalWidth);
+      g.drawImage(signImg, TEXT_X, y+6, sigW, sigH);
     }
     function drawPhotoBox(box, img, fit){
       if(img && img.complete && img.naturalWidth){
@@ -1549,6 +1562,7 @@
     const tex = new THREE.CanvasTexture(c); tex.encoding = THREE.sRGBEncoding;
     const artistImg = new Image();
     const studioImg = new Image();
+    const signImg = new Image();
     function redraw(){
       g.fillStyle='#f7f7f5'; g.fillRect(0,0,W,H);
       drawPhotoBox(photoBox, artistImg);
@@ -1564,6 +1578,8 @@
     artistImg.src = 'me.JPG';
     studioImg.onload = redraw;
     studioImg.src = 'studio.JPG';
+    signImg.onload = redraw;
+    signImg.src = 'sign.jpeg';
 
     return tex;
   }
